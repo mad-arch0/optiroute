@@ -1,0 +1,976 @@
+
+cat > web/index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPTIROUTE | Intelligent Robot Navigation</title>
+
+<style>
+:root {
+ --bg:#080d18;
+ --panel:#101a2b;
+ --line:#263650;
+ --text:#e8f0ff;
+ --muted:#91a4c1;
+ --cyan:#41d9ee;
+ --green:#48d597;
+ --red:#ff647c;
+}
+
+* {box-sizing:border-box}
+
+body {
+ margin:0;
+ background:radial-gradient(circle at 15% 0%,#142b49 0,transparent 32%),var(--bg);
+ color:var(--text);
+ font:14px/1.5 system-ui,Arial,sans-serif;
+}
+
+header {
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:18px 24px;
+ border-bottom:1px solid var(--line);
+ background:#091221;
+ position:sticky;
+ top:0;
+ z-index:3;
+}
+
+.brand {font-size:23px;font-weight:850;letter-spacing:2px}
+.brand span {color:var(--cyan)}
+.sub {color:var(--muted);font-size:11px;letter-spacing:1px}
+
+.pill {
+ border:1px solid var(--line);
+ border-radius:30px;
+ padding:6px 11px;
+ color:var(--muted);
+ font-size:12px;
+}
+
+main {
+ max-width:1450px;
+ margin:auto;
+ padding:20px;
+ display:grid;
+ grid-template-columns:minmax(320px,1.55fr) minmax(290px,.85fr);
+ gap:16px;
+}
+
+.panel {
+ background:linear-gradient(145deg,#111d30,#0d1727);
+ border:1px solid var(--line);
+ border-radius:15px;
+ padding:16px;
+}
+
+h2 {font-size:15px;margin:0 0 13px}
+h3 {font-size:12px;color:var(--muted);margin:18px 0 9px;text-transform:uppercase}
+
+.controls {
+ display:flex;
+ gap:9px;
+ flex-wrap:wrap;
+ align-items:end;
+}
+
+.field {
+ display:flex;
+ flex-direction:column;
+ gap:4px;
+ color:var(--muted);
+ font-size:11px;
+}
+
+input,select {
+ background:#0a1423;
+ border:1px solid var(--line);
+ border-radius:8px;
+ color:var(--text);
+ padding:10px;
+ width:100px;
+}
+
+button {
+ background:#1c3452;
+ color:var(--text);
+ border:1px solid #35577d;
+ border-radius:8px;
+ padding:10px 13px;
+ font-weight:650;
+ cursor:pointer;
+}
+
+button:hover {filter:brightness(1.2)}
+button.primary {background:#087f9c;border-color:#22c4db}
+button.danger {background:#74283a;border-color:#b94d63}
+button:disabled {opacity:.4;cursor:not-allowed}
+
+.grid-wrap {overflow:auto;padding:15px 0}
+
+.grid {
+ display:grid;
+ gap:5px;
+ width:max-content;
+ margin:auto;
+}
+
+.cell {
+ width:clamp(43px,6vw,66px);
+ height:clamp(43px,6vw,66px);
+ border-radius:9px;
+ border:1px solid #2b405e;
+ background:#162840;
+ color:#9bb1d0;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ position:relative;
+ font-size:11px;
+ cursor:pointer;
+}
+
+.cell.wall {background:#374254;color:white}
+.cell.start {background:#0b765e;color:white;border-color:#35d9aa}
+.cell.goal {background:#8b344d;color:white;border-color:#ff7892}
+.cell.path {background:#164d75;color:white}
+.cell.visited {background:#253a56}
+.cell.cost {box-shadow:inset 0 0 0 2px #c18b37}
+
+.cell .coord {
+ position:absolute;
+ bottom:2px;
+ right:4px;
+ font-size:8px;
+ opacity:.7;
+}
+
+.legend {
+ display:flex;
+ gap:13px;
+ flex-wrap:wrap;
+ color:var(--muted);
+ font-size:11px;
+}
+
+.key {display:flex;align-items:center;gap:5px}
+.swatch {width:10px;height:10px;border-radius:3px;background:#162840}
+.swatch.start {background:#0b765e}
+.swatch.goal {background:#8b344d}
+.swatch.wall {background:#69778b}
+.swatch.path {background:#164d75}
+.swatch.visited {background:#253a56}
+
+.metrics {
+ display:grid;
+ grid-template-columns:repeat(3,1fr);
+ gap:8px;
+}
+
+.metric {
+ background:#0b1626;
+ border:1px solid var(--line);
+ border-radius:10px;
+ padding:10px;
+ min-width:0;
+}
+
+.metric b {
+ display:block;
+ font-size:20px;
+ color:var(--cyan);
+ overflow-wrap:anywhere;
+}
+
+.metric small {color:var(--muted)}
+
+.algos {
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:8px;
+}
+
+.algo {
+ padding:11px;
+ background:#0b1626;
+ border:1px solid var(--line);
+ border-radius:9px;
+}
+
+.algo strong {display:block}
+.algo small {color:var(--muted)}
+
+.log {
+ height:135px;
+ overflow:auto;
+ background:#07101d;
+ border:1px solid var(--line);
+ border-radius:9px;
+ padding:10px;
+ color:#9bd7d9;
+ font:11px/1.6 monospace;
+ white-space:pre-wrap;
+}
+
+.statusline {color:var(--muted);font-size:12px;margin-top:9px}
+.row {display:flex;justify-content:space-between;align-items:center;gap:8px}
+.full {width:100%}
+
+.position-box {
+ background:#0b1626;
+ border:1px solid var(--line);
+ border-radius:10px;
+ padding:12px;
+ margin:12px 0;
+}
+
+.position-grid {
+ display:grid;
+ grid-template-columns:repeat(4,minmax(65px,1fr));
+ gap:9px;
+ align-items:end;
+}
+
+.position-grid input {width:100%}
+
+@media(max-width:850px) {
+ main {grid-template-columns:1fr;padding:12px}
+ header {padding:13px}
+ .brand {font-size:18px}
+ .position-grid {grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div>
+  <div class="brand">OPTI<span>ROUTE</span></div>
+  <div class="sub">INTELLIGENT PATHFINDING & ROBOT NAVIGATION</div>
+ </div>
+ <div class="pill" id="connection">Checking Pi...</div>
+</header>
+
+<main>
+
+<section class="panel">
+
+ <div class="row">
+  <h2>Navigation Environment</h2>
+  <span class="pill" id="gridLabel">5 × 5 GRID</span>
+ </div>
+
+ <div class="controls">
+  <label class="field">Rows
+   <input id="rows" type="number" min="2" max="30" value="5">
+  </label>
+
+  <label class="field">Columns
+   <input id="cols" type="number" min="2" max="30" value="5">
+  </label>
+
+  <button id="resize">Apply Grid</button>
+
+  <label class="field">Edit Mode
+   <select id="mode">
+    <option value="wall">Add/remove obstacle</option>
+    <option value="cost">Change cell cost</option>
+    <option value="start">Set start by clicking</option>
+    <option value="goal">Set destination by clicking</option>
+   </select>
+  </label>
+
+  <button id="clear">Clear Obstacles</button>
+ </div>
+
+ <div class="position-box">
+  <h3>Manual Start and Destination Coordinates</h3>
+
+  <div class="position-grid">
+   <label class="field">Start Row
+    <input id="startRow" type="number" min="0" value="0">
+   </label>
+
+   <label class="field">Start Column
+    <input id="startCol" type="number" min="0" value="0">
+   </label>
+
+   <label class="field">Destination Row
+    <input id="goalRow" type="number" min="0" value="4">
+   </label>
+
+   <label class="field">Destination Column
+    <input id="goalCol" type="number" min="0" value="4">
+   </label>
+  </div>
+
+  <button class="primary full" id="applyPositions" style="margin-top:12px">
+   UPDATE START & DESTINATION
+  </button>
+
+  <div class="statusline">
+   Coordinates start at 0. In a 5 × 5 grid, valid coordinates are 0–4.
+  </div>
+ </div>
+
+ <div class="grid-wrap">
+  <div class="grid" id="grid"></div>
+ </div>
+
+ <div class="legend">
+  <span class="key"><i class="swatch start"></i>Start</span>
+  <span class="key"><i class="swatch goal"></i>Destination</span>
+  <span class="key"><i class="swatch wall"></i>Obstacle</span>
+  <span class="key"><i class="swatch visited"></i>Explored</span>
+  <span class="key"><i class="swatch path"></i>Route</span>
+ </div>
+
+ <h3>Pathfinding Algorithms</h3>
+
+ <div class="controls">
+  <label class="field">Algorithm
+   <select id="algorithm">
+    <option value="astar">A*</option>
+    <option value="dijkstra">Dijkstra</option>
+    <option value="bfs">BFS</option>
+    <option value="weighted">Weighted A*</option>
+   </select>
+  </label>
+
+  <label class="field">Weighted A* Factor
+   <input id="weight" type="number" min="1" max="5" step=".1" value="1.5">
+  </label>
+
+  <button class="primary" id="find">Calculate Route</button>
+  <button id="compare">Compare All</button>
+ </div>
+
+ <div class="statusline" id="routeStatus">
+  Set start and destination, then calculate a route.
+ </div>
+
+ <h3>Performance Metrics</h3>
+
+ <div class="metrics">
+  <div class="metric">
+   <b id="pathCost">—</b>
+   <small>Total Cost</small>
+  </div>
+  <div class="metric">
+   <b id="pathLength">—</b>
+   <small>Steps</small>
+  </div>
+  <div class="metric">
+   <b id="explored">—</b>
+   <small>Nodes Explored</small>
+  </div>
+ </div>
+
+ <h3>Algorithm Comparison</h3>
+
+ <div class="algos" id="comparison">
+  <div class="algo"><strong>BFS</strong><small>Not run</small></div>
+  <div class="algo"><strong>Dijkstra</strong><small>Not run</small></div>
+  <div class="algo"><strong>A*</strong><small>Not run</small></div>
+  <div class="algo"><strong>Weighted A*</strong><small>Not run</small></div>
+ </div>
+
+</section>
+
+<aside class="panel">
+
+ <h2>Robot Execution</h2>
+
+ <div class="metrics">
+  <div class="metric">
+   <b id="modeValue">—</b>
+   <small>Operating Mode</small>
+  </div>
+  <div class="metric">
+   <b id="piStatus">—</b>
+   <small>Pi Status</small>
+  </div>
+  <div class="metric">
+   <b id="progress">0/0</b>
+   <small>Progress</small>
+  </div>
+ </div>
+
+ <h3>Robot Settings</h3>
+
+ <div class="controls">
+  <label class="field">Initial Heading
+   <select id="heading">
+    <option value="N">North ↑</option>
+    <option value="E">East →</option>
+    <option value="S">South ↓</option>
+    <option value="W">West ←</option>
+   </select>
+  </label>
+
+  <label class="field">Motor Speed
+   <input id="speed" type="number" min="0" max="255" value="120">
+  </label>
+ </div>
+
+ <p class="statusline">
+  Movement timing is calibrated on the Raspberry Pi.
+  Test in simulation before enabling motors.
+ </p>
+
+ <div class="controls">
+  <button class="primary full" id="execute">Execute Calculated Route</button>
+  <button class="danger full" id="stop">EMERGENCY STOP</button>
+ </div>
+
+ <h3>Manual Test Controls</h3>
+
+ <div class="controls">
+  <button data-manual="forward">↑ Forward</button>
+  <button data-manual="left">← Left</button>
+  <button data-manual="right">Right →</button>
+  <button data-manual="backward">↓ Backward</button>
+  <button class="danger" data-manual="stop">Stop</button>
+ </div>
+
+ <h3>Command / System Log</h3>
+ <div class="log" id="log">OPTIROUTE initialized.
+Waiting for Raspberry Pi server...</div>
+
+ <div class="statusline" id="serverMessage">
+  Connecting to local Pi server...
+ </div>
+
+ <p class="statusline">
+  <b>Safety:</b> Hardware mode must be enabled on the Pi.
+  Test with wheels lifted and calibrate movement before driving.
+ </p>
+
+</aside>
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let rows = 5;
+let cols = 5;
+
+let start = [0,0];
+let goal = [4,4];
+
+let walls = new Set();
+let costs = {};
+
+let currentPath = null;
+let exploredSet = new Set();
+let currentResult = null;
+
+const key = (r,c) => `${r},${c}`;
+const parse = k => k.split(",").map(Number);
+
+function log(message) {
+ const el = $("log");
+ el.textContent += `\n${new Date().toLocaleTimeString()} ${message}`;
+ el.scrollTop = el.scrollHeight;
+}
+
+function resetResult() {
+ currentPath = null;
+ currentResult = null;
+ exploredSet.clear();
+
+ $("pathCost").textContent = "—";
+ $("pathLength").textContent = "—";
+ $("explored").textContent = "—";
+
+ $("routeStatus").textContent = "Map changed. Calculate a new route.";
+
+ $("comparison").innerHTML =
+ ["BFS","Dijkstra","A*","Weighted A*"]
+ .map(x => `<div class="algo"><strong>${x}</strong><small>Not run</small></div>`)
+ .join("");
+
+ render();
+}
+
+function render() {
+
+ $("gridLabel").textContent = `${rows} × ${cols} GRID`;
+
+ $("startRow").value = start[0];
+ $("startCol").value = start[1];
+ $("goalRow").value = goal[0];
+ $("goalCol").value = goal[1];
+
+ const grid = $("grid");
+
+ grid.style.gridTemplateColumns = `repeat(${cols},60px)`;
+ grid.innerHTML = "";
+
+ for(let r=0;r<rows;r++) {
+  for(let c=0;c<cols;c++) {
+
+   const k = key(r,c);
+   const el = document.createElement("button");
+
+   el.className = "cell";
+   el.textContent = costs[k] ? `×${costs[k]}` : "";
+
+   if(walls.has(k)) el.classList.add("wall");
+   if(exploredSet.has(k)) el.classList.add("visited");
+
+   if(currentPath?.some(p => p[0]===r && p[1]===c))
+    el.classList.add("path");
+
+   if(r===start[0] && c===start[1]) {
+    el.className = "cell start";
+    el.textContent = "START";
+   }
+
+   if(r===goal[0] && c===goal[1]) {
+    el.className = "cell goal";
+    el.textContent = "GOAL";
+   }
+
+   if(costs[k] && !walls.has(k) &&
+      !(r===start[0] && c===start[1]) &&
+      !(r===goal[0] && c===goal[1])) {
+    el.classList.add("cost");
+   }
+
+   const coord = document.createElement("span");
+   coord.className = "coord";
+   coord.textContent = `${r},${c}`;
+
+   el.append(coord);
+   el.onclick = () => editCell(r,c);
+
+   grid.append(el);
+  }
+ }
+}
+
+function editCell(r,c) {
+
+ const k = key(r,c);
+ const mode = $("mode").value;
+
+ if(mode==="start") {
+  if(walls.has(k) || key(...goal)===k) {
+   alert("Invalid start position.");
+   return;
+  }
+  start = [r,c];
+ }
+
+ else if(mode==="goal") {
+  if(walls.has(k) || key(...start)===k) {
+   alert("Invalid destination position.");
+   return;
+  }
+  goal = [r,c];
+ }
+
+ else if(mode==="wall") {
+  if(key(...start)===k || key(...goal)===k) return;
+
+  if(walls.has(k)) walls.delete(k);
+  else walls.add(k);
+ }
+
+ else if(mode==="cost") {
+  if(walls.has(k) || key(...start)===k || key(...goal)===k)
+   return;
+
+  costs[k] = (costs[k] || 1) % 5 + 1;
+ }
+
+ resetResult();
+}
+
+$("applyPositions").onclick = () => {
+
+ const values = [
+  $("startRow").value.trim(),
+  $("startCol").value.trim(),
+  $("goalRow").value.trim(),
+  $("goalCol").value.trim()
+ ];
+
+ if(values.some(v => v==="") ||
+    values.some(v => !Number.isInteger(Number(v)))) {
+  alert("Enter valid whole-number coordinates.");
+  return;
+ }
+
+ const [sr,sc,gr,gc] = values.map(Number);
+
+ if(sr<0 || sr>=rows || gr<0 || gr>=rows ||
+    sc<0 || sc>=cols || gc<0 || gc>=cols) {
+  alert(`Valid rows: 0-${rows-1}. Valid columns: 0-${cols-1}.`);
+  return;
+ }
+
+ const sk = key(sr,sc);
+ const gk = key(gr,gc);
+
+ if(sk===gk) {
+  alert("Start and destination cannot be the same cell.");
+  return;
+ }
+
+ if(walls.has(sk) || walls.has(gk)) {
+  alert("Start and destination cannot be on obstacles.");
+  return;
+ }
+
+ start = [sr,sc];
+ goal = [gr,gc];
+
+ resetResult();
+
+ log(`START: (${sr},${sc}) DESTINATION: (${gr},${gc})`);
+};
+
+function neighbors([r,c]) {
+
+ return [
+  [r-1,c],
+  [r,c+1],
+  [r+1,c],
+  [r,c-1]
+ ].filter(([a,b]) =>
+  a>=0 && a<rows &&
+  b>=0 && b<cols &&
+  !walls.has(key(a,b))
+ );
+}
+
+function heuristic(a,b) {
+ return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]);
+}
+
+function cellCost(p) {
+ return costs[key(...p)] || 1;
+}
+
+function reconstruct(prev,end) {
+
+ let path = [end];
+ let k = key(...end);
+
+ while(prev.has(k)) {
+  const p = prev.get(k);
+  path.unshift(p);
+  k = key(...p);
+ }
+
+ return path;
+}
+
+function search(algo,weight=1.5) {
+
+ const t0 = performance.now();
+
+ const s = start;
+ const g = goal;
+
+ const sk = key(...s);
+ const gk = key(...g);
+
+ const open = [{p:s,priority:0}];
+ const prev = new Map();
+ const dist = new Map([[sk,0]]);
+ const visited = [];
+ const closed = new Set();
+
+ while(open.length) {
+
+  open.sort((a,b) => a.priority-b.priority);
+
+  const cur = open.shift().p;
+  const k = key(...cur);
+
+  if(closed.has(k)) continue;
+
+  closed.add(k);
+  visited.push(cur);
+
+  if(k===gk) {
+
+   const path = reconstruct(prev,g);
+
+   let total = 0;
+
+   for(let i=1;i<path.length;i++)
+    total += cellCost(path[i]);
+
+   return {
+    path,
+    visited,
+    cost:total,
+    steps:path.length-1,
+    ms:performance.now()-t0,
+    found:true
+   };
+  }
+
+  for(const n of neighbors(cur)) {
+
+   const nk = key(...n);
+
+   if(closed.has(nk)) continue;
+
+   if(algo==="bfs") {
+
+    if(dist.has(nk)) continue;
+
+    dist.set(nk,dist.get(k)+1);
+    prev.set(nk,cur);
+
+    open.push({
+     p:n,
+     priority:dist.get(nk)
+    });
+
+   } else {
+
+    const nd = dist.get(k)+cellCost(n);
+
+    if(nd<(dist.get(nk) ?? Infinity)) {
+
+     dist.set(nk,nd);
+     prev.set(nk,cur);
+
+     const heuristicValue =
+      algo==="dijkstra" ? 0 :
+      heuristic(n,g)*(algo==="weighted"?weight:1);
+
+     open.push({
+      p:n,
+      priority:nd+heuristicValue
+     });
+    }
+   }
+  }
+ }
+
+ return {
+  path:[],
+  visited,
+  cost:Infinity,
+  steps:0,
+  ms:performance.now()-t0,
+  found:false
+ };
+}
+
+function showResult(res,label) {
+
+ currentResult = res;
+ currentPath = res.path;
+
+ exploredSet = new Set(
+  res.visited.map(p => key(...p))
+ );
+
+ $("pathCost").textContent =
+  res.found ? res.cost.toFixed(1) : "—";
+
+ $("pathLength").textContent =
+  res.found ? res.steps : "—";
+
+ $("explored").textContent = res.visited.length;
+
+ $("routeStatus").textContent =
+  res.found
+   ? `${label}: route found in ${res.ms.toFixed(2)} ms.`
+   : "No route exists. Remove obstacles or choose another destination.";
+
+ render();
+
+ log(res.found
+  ? `${label}: ${res.steps} steps, cost ${res.cost}, explored ${res.visited.length} nodes.`
+  : `${label}: No route found.`);
+}
+
+function runSelected() {
+
+ const a = $("algorithm").value;
+
+ const w = Math.max(
+  1,
+  Math.min(5,Number($("weight").value)||1.5)
+ );
+
+ const res = search(a,w);
+
+ showResult(res,a.toUpperCase());
+}
+
+function compare() {
+
+ const w = Math.max(
+  1,
+  Math.min(5,Number($("weight").value)||1.5)
+ );
+
+ const all = [
+  ["BFS",search("bfs")],
+  ["Dijkstra",search("dijkstra")],
+  ["A*",search("astar")],
+  ["Weighted A*",search("weighted",w)]
+ ];
+
+ $("comparison").innerHTML = all.map(([name,res]) => `
+  <div class="algo">
+   <strong>${name}</strong>
+   <small>
+    ${res.found
+     ? `${res.steps} steps · cost ${res.cost} · ${res.visited.length} explored · ${res.ms.toFixed(2)} ms`
+     : "No route"}
+   </small>
+  </div>
+ `).join("");
+
+ showResult(all[2][1],"A*");
+}
+
+$("resize").onclick = () => {
+
+ const nr = Math.max(2,Math.min(30,Number($("rows").value)||5));
+ const nc = Math.max(2,Math.min(30,Number($("cols").value)||5));
+
+ rows = nr;
+ cols = nc;
+
+ walls.clear();
+ costs = {};
+
+ start = [0,0];
+ goal = [rows-1,cols-1];
+
+ resetResult();
+ log(`Grid resized to ${rows} × ${cols}`);
+};
+
+$("clear").onclick = () => {
+ walls.clear();
+ costs = {};
+ resetResult();
+ log("Obstacles and cell costs cleared.");
+};
+
+$("find").onclick = runSelected;
+$("compare").onclick = compare;
+
+async function api(path,body) {
+
+ const response = await fetch(path,{
+  method:body ? "POST" : "GET",
+  headers:{"Content-Type":"application/json"},
+  body:body ? JSON.stringify(body) : undefined
+ });
+
+ const data = await response.json();
+
+ if(!response.ok)
+  throw new Error(data.detail || "API request failed");
+
+ return data;
+}
+
+async function refreshStatus() {
+
+ try {
+
+  const s = await api("/api/status");
+
+  $("connection").textContent =
+   s.hardware_enabled
+    ? (s.connected ? "Arduino Connected" : "Hardware Disconnected")
+    : "Pi Server Online";
+
+  $("modeValue").textContent = s.mode;
+  $("piStatus").textContent = s.running ? "RUNNING" : s.status;
+  $("progress").textContent = `${s.completed_steps}/${s.total_steps}`;
+
+  $("serverMessage").textContent =
+   s.error ? `Error: ${s.error}` :
+   s.last_message || s.status;
+
+ } catch(e) {
+
+  $("connection").textContent = "Pi Offline";
+  $("serverMessage").textContent =
+   "Cannot reach Raspberry Pi server.";
+ }
+}
+
+$("execute").onclick = async () => {
+
+ if(!currentPath || currentPath.length<2) {
+  alert("Calculate a valid route first.");
+  return;
+ }
+
+ if(!confirm("Execute this route? Ensure the car is in a safe test area and emergency stop is available.")) return;
+
+ try {
+
+  const res = await api("/api/execute",{
+   path:currentPath,
+   rows,
+   cols,
+   obstacles:[...walls].map(parse),
+   speed:Number($("speed").value)||120,
+   heading:$("heading").value
+  });
+
+  log(res.message+" ("+res.mode+")");
+
+ } catch(e) {
+
+  log("Execution error: "+e.message);
+  alert(e.message);
+ }
+};
+
+$("stop").onclick = async () => {
+
+ try {
+  await api("/api/stop",{});
+  log("EMERGENCY STOP requested.");
+ } catch(e) {
+  log("STOP request failed: "+e.message);
+ }
+};
+
+document.querySelectorAll("[data-manual]").forEach(button => {
+
+ button.onclick = async () => {
+
+  try {
+   await api("/api/manual/"+button.dataset.manual,{});
+   log("Manual command: "+button.dataset.manual);
+  } catch(e) {
+   log("Manual error: "+e.message);
+  }
+ };
+});
+
+render();
+refreshStatus();
+setInterval(refreshStatus,700);
+
+</script>
+</body>
+</html>
+EOF
+
